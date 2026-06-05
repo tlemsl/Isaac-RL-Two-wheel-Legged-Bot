@@ -22,42 +22,56 @@ from lab.flamingo.assets.flamingo.wolf_rev01_0_0 import WOLF_CFG  # isort: skip
 class WolfRewardsCfg():
     # -- task
     track_lin_vel_xy_exp = RewTerm(
-        func=mdp.track_lin_vel_xy_exp, weight=4.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+        func=mdp.track_lin_vel_xy_exp, weight=8.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
     track_ang_vel_z_exp = RewTerm(
-        func=mdp.track_ang_vel_z_exp, weight=2.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+        func=mdp.track_ang_vel_z_exp, weight=4.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+    )
+
+    flat_euler_angle_l2 = RewTerm(
+        func=mdp.flat_euler_angle_l2, weight=-100.0
     )
     # -- penalties
-    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-200.0)
+    # termination_penalty = RewTerm(func=mdp.is_terminated, weight=-200.0)
     
     lin_vel_z_l2 = RewTerm(func=mdp.lin_vel_z_l2, weight=-2.0)
     ang_vel_xy_l2 = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
     
-    dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight=-5.0e-5)
+    dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight=-1.0e-5)
     dof_acc_l2 = RewTerm(func=mdp.joint_acc_l2, weight=-2.5e-7)
     action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
-    feet_air_time = RewTerm(
-        func=mdp.feet_air_time,
-        weight=0.01,
-        params={
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=["Shank_front_left_link", "Shank_front_right_link", "Ankle_back_left_link", "Ankle_back_right_link"]),
-            "command_name": "base_velocity",
-            "threshold": 0.5,
-        },
-    )
+    # feet_air_time = RewTerm(
+    #     func=mdp.feet_air_time,
+    #     weight=0.01,
+    #     params={
+    #         "sensor_cfg": SceneEntityCfg("contact_forces", body_names=["Foot_front_left_link", "Foot_front_right_link", "Foot_back_left_link", "Foot_back_right_link"]),
+    #         "command_name": "base_velocity",
+    #         "threshold": 0.5,
+    #     },
+    # )
     undesired_contacts = RewTerm(
         func=mdp.undesired_contacts,
-        weight=-0.5,
+        weight=-1.0,
         params={
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=["Thigh_.*"]),
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=["Thigh_.*", "Shank_.*", "Ankle_.*"]),
             "threshold": 1.0,
         },
     )
     joint_deviation_hip = RewTerm(
         func=mdp.joint_deviation_zero_l1,
-        weight=-1.0,
+        weight=-4.0,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["HAA_.*"])},
     )
+    # joint_deviation_knee = RewTerm(
+    #     func=mdp.joint_deviation_zero_l1,
+    #     weight=-0.5,
+    #     params={"asset_cfg": SceneEntityCfg("robot", joint_names=["KFE_.*"])},
+    # )
+    # joint_deviation_ankle = RewTerm(
+    #     func=mdp.joint_deviation_zero_l1,
+    #     weight=-0.5,
+    #     params={"asset_cfg": SceneEntityCfg("robot", joint_names=["AFE_.*"])},
+    # )
     
     joint_applied_torque_limits = RewTerm(
         func=mdp.applied_torque_limits,
@@ -105,10 +119,23 @@ class WolfFlatEnvCfg(LocomotionVelocityRoughEnvCfg):
         
         # add base mass should be called here
         self.events.add_base_mass.params["asset_cfg"].body_names = ["base_link"]
-        self.events.add_base_mass.params["mass_distribution_params"] = (-1.0, 3.0)
+        self.events.add_base_mass.params["mass_distribution_params"] = (0.0, 90.0)
+
+
+
+        # reset_robot_joint_zero should be called here
+        self.events.reset_robot_joints.params["position_range"] = (-0.2, 0.2)
+        # self.events.push_robot.interval_range_s = (5.5, 6.5)
+        # self.events.push_robot.params = {
+        #     "velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "z": (-0.5, 0.5)},
+        # }
 
         # physics material should be called here
-        self.events.physics_material.params["asset_cfg"].body_names = [".*_link"]
+        self.events.physics_material.params["asset_cfg"].body_names = ["Foot_.*"]
+        self.events.physics_material.params["static_friction_range"] = (0.3, 2.0)
+        self.events.physics_material.params["dynamic_friction_range"] = (0.3, 1.8)
+        
+        # reset base should be called here
         self.events.reset_base.params = {
             "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "yaw": (-3.14, 3.14)},
             "velocity_range": {
@@ -122,9 +149,9 @@ class WolfFlatEnvCfg(LocomotionVelocityRoughEnvCfg):
         }
 
         # commands
-        self.commands.base_velocity.ranges.lin_vel_x = (-1.5, 1.5)
+        self.commands.base_velocity.ranges.lin_vel_x = (-2.0, 2.0)
         self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
-        self.commands.base_velocity.ranges.ang_vel_z = (-2.5, 2.5)
+        self.commands.base_velocity.ranges.ang_vel_z = (-1.5, 1.5)
         self.commands.base_velocity.ranges.heading = (-math.pi, math.pi)
         
         # terminations
@@ -132,6 +159,8 @@ class WolfFlatEnvCfg(LocomotionVelocityRoughEnvCfg):
             "base_link",
             "Hip_.*",
             "Thigh_.*",
+            # "Shank_.*",
+            # "Ankle_.*",
         ]
 
 @configclass
@@ -139,7 +168,10 @@ class WolfFlatEnvCfg_PLAY(WolfFlatEnvCfg):
     def __post_init__(self):
         # post init of parent
         super().__post_init__()
-        self.episode_length_s = 20.0
+        # Re-enable obs_info group for play (was disabled in base flat config)
+        # This allows analysis utilities (e.g., torque/velocity logging) to access obs_info terms.
+        # self.observations.obs_info = type(self.observations).InfoCfg()
+        self.episode_length_s = 5.0
         # make a smaller scene for play
         self.scene.num_envs = 100
         self.scene.env_spacing = 2.5
@@ -171,11 +203,13 @@ class WolfFlatEnvCfg_PLAY(WolfFlatEnvCfg):
         #! ********************************************************* !#
 
         # add base mass should be called here
-        self.events.add_base_mass.params["asset_cfg"].body_names = ["base_link"]
-        self.events.add_base_mass.params["mass_distribution_params"] = (-1.0, 3.0)
+        # self.events.add_base_mass.params["asset_cfg"].body_names = ["base_link"]
+        # self.events.add_base_mass.params["mass_distribution_params"] = (60.0, 70.0)
 
-        # physics material should be called here
-        self.events.physics_material.params["asset_cfg"].body_names = [".*_link"]
+        # # physics material should be called here
+        # self.events.physics_material.params["asset_cfg"].body_names = ["Foot_.*"]
+        # self.events.physics_material.params["static_friction_range"] = (0.3, 2.0)
+        # self.events.physics_material.params["dynamic_friction_range"] = (0.3, 1.8)
 
         # randomize actuator gains
         self.events.randomize_joint_actuator_gains = None
@@ -196,12 +230,16 @@ class WolfFlatEnvCfg_PLAY(WolfFlatEnvCfg):
         }
         
         # commands
-        self.commands.base_velocity.ranges.lin_vel_x = (-1.5, 1.5)
-        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
-        self.commands.base_velocity.ranges.ang_vel_z = (-2.5, 2.5)
-        self.commands.base_velocity.ranges.heading = (-math.pi, math.pi)
+        # self.commands.base_velocity.ranges.lin_vel_x = (6.5, 7.5)
+        # self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
+        # self.commands.base_velocity.ranges.ang_vel_z = (-2.5, 2.5)
+        # self.commands.base_velocity.ranges.heading = (-math.pi, math.pi)
         
         # terminations
         self.terminations.base_contact.params["sensor_cfg"].body_names = [
             "base_link",
+            "Hip_.*",
+            "Thigh_.*",
+            # "Shank_.*",
+            # "Ankle_.*",
         ]
