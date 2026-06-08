@@ -13,13 +13,15 @@ from lab.flamingo.assets.flamingo import FLAMINGO_ASSETS_DATA_DIR
 
 # Shared delayed-PD defaults for Wolf policy training (joint-space, 14 DOF).
 _WOLF_PD_DELAY = dict(min_delay=0, max_delay=4)
+# Plant ID from docs/calibration/lfl_knee_plant.yaml (2026-06-09, Kp500/Kd80 bench).
+# stiffness=80 is RL internal PD; bench MIT parity uses stiffness≈0 (see calibration yaml).
 _WOLF_KFE_PD = dict(
     effort_limit=600.0,
     velocity_limit=25.0,
     stiffness=80.0,
-    damping=1.0,
+    damping=0.0,
     friction=0.0,
-    armature=0.01,
+    armature=0.035,
 )
 _WOLF_AFE_PD = dict(
     effort_limit=500.0,
