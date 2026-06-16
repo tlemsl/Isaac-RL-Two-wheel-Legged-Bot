@@ -25,7 +25,7 @@ class WolfRewardsCfg():
         func=mdp.track_lin_vel_xy_exp, weight=3.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
     track_ang_vel_z_exp = RewTerm(
-        func=mdp.track_ang_vel_z_exp, weight=2.5, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+        func=mdp.track_ang_vel_z_exp, weight=3.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
 
     flat_euler_angle_l2 = RewTerm(
@@ -37,7 +37,7 @@ class WolfRewardsCfg():
     lin_vel_z_l2 = RewTerm(func=mdp.lin_vel_z_l2, weight=-2.0)
     ang_vel_xy_l2 = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
     
-    dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight=-1.0e-5)
+    dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight=-3.0e-6)
     dof_acc_l2 = RewTerm(func=mdp.joint_acc_l2, weight=-1.0e-7)
     action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
     # feet_air_time = RewTerm(
@@ -57,21 +57,26 @@ class WolfRewardsCfg():
             "threshold": 1.0,
         },
     )
-    joint_deviation_hip = RewTerm(
+    joint_deviation_hip_front = RewTerm(
+        func=mdp.joint_deviation_zero_l1,
+        weight=-0.5,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["HAA_front.*"])},
+    )
+    joint_deviation_hip_back = RewTerm(
         func=mdp.joint_deviation_zero_l1,
         weight=-1.0,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["HAA_.*"])},
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["HAA_back.*"])},
     )
-    # joint_deviation_knee = RewTerm(
-    #     func=mdp.joint_deviation_zero_l1,
-    #     weight=-0.5,
-    #     params={"asset_cfg": SceneEntityCfg("robot", joint_names=["KFE_.*"])},
-    # )
-    # joint_deviation_ankle = RewTerm(
-    #     func=mdp.joint_deviation_zero_l1,
-    #     weight=-0.3,
-    #     params={"asset_cfg": SceneEntityCfg("robot", joint_names=["AFE_.*"])},
-    # )
+    joint_deviation_knee = RewTerm(
+        func=mdp.joint_deviation_zero_l1,
+        weight=-0.5,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["KFE_.*"])},
+    )
+    joint_deviation_ankle = RewTerm(
+        func=mdp.joint_deviation_zero_l1,
+        weight=-0.3,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["AFE_.*"])},
+    )
     # joint_deviation_hfe = RewTerm(
     #     func=mdp.joint_deviation_zero_l1,
     #     weight=-0.5,  # 또는 -1.0
@@ -115,13 +120,15 @@ class WolfFlatEnvCfg(LocomotionVelocityRoughEnvCfg):
         
         self.observations.none_stack_critic.height_scan = None
         self.observations.none_stack_policy.height_scan = None
+        self.observations.none_stack_policy.base_lin_vel_x = None
+        self.observations.none_stack_policy.base_lin_vel_y = None
+        self.observations.none_stack_policy.base_lin_vel_z = None
         # self.observations.obs_info = None
 
         # reset_robot_joint_zero should be called here
-        self.events.reset_robot_joints.params["position_range"] = (-0.1, 0.1)
-        self.events.push_robot = None
+        self.events.reset_robot_joints.params["position_range"] = (-0.2, 0.2)
 
-        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
+        # self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
         
         # add base mass should be called here
         self.events.add_base_mass.params["asset_cfg"].body_names = ["base_link"]
@@ -130,14 +137,14 @@ class WolfFlatEnvCfg(LocomotionVelocityRoughEnvCfg):
 
 
         # reset_robot_joint_zero should be called here
-        self.events.reset_robot_joints.params["position_range"] = (-0.2, 0.2)
-        # self.events.push_robot.interval_range_s = (5.5, 6.5)
-        # self.events.push_robot.params = {
-        #     "velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "z": (-0.5, 0.5)},
-        # }
+        # self.events.reset_robot_joints.params["position_range"] = (-0.1, 0.1)
+        self.events.push_robot.interval_range_s = (13.0, 15.0)
+        self.events.push_robot.params = {
+            "velocity_range": {"x": (-1.0, 1.0), "y": (-1.0, 1.0), "z": (-1.0, 1.0)},
+        }
 
         # physics material should be called here
-        self.events.physics_material.params["asset_cfg"].body_names = ["Foot_.*"]
+        self.events.physics_material.params["asset_cfg"].body_names = [".*_link"]
         self.events.physics_material.params["static_friction_range"] = (0.3, 1.0)
         self.events.physics_material.params["dynamic_friction_range"] = (0.3, 0.8)
         
@@ -220,11 +227,14 @@ class WolfFlatEnvCfg_PLAY(WolfFlatEnvCfg):
         # randomize actuator gains
         self.events.randomize_joint_actuator_gains = None
 
-        self.events.reset_robot_joints.params["position_range"] = (-0.15, 0.15)
-        self.events.push_robot = None
+        self.events.reset_robot_joints.params["position_range"] = (-0.2, 0.2)
+        # self.events.push_robot.interval_range_s = (5.5, 6.5)
+        # self.events.push_robot.params = {
+        #     "velocity_range": {"x": (-0.0, 0.0), "y": (-0.0, 0.0), "z": (0.0, 0.0)},
+        # }
         
         self.events.reset_base.params = {
-            "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "yaw": (-3.14, 3.14)},
+            "pose_range": {"x": (-0.0, 0.0), "y": (-0.0, 0.0), "yaw": (0.0, 0.0)},
             "velocity_range": {
                 "x": (0.0, 0.0),
                 "y": (0.0, 0.0),
@@ -236,7 +246,7 @@ class WolfFlatEnvCfg_PLAY(WolfFlatEnvCfg):
         }
         
         # commands
-        # self.commands.base_velocity.ranges.lin_vel_x = (6.5, 7.5)
+        # self.commands.base_velocity.ranges.lin_vel_x = (0.0, 0.0)
         # self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
         # self.commands.base_velocity.ranges.ang_vel_z = (-2.5, 2.5)
         # self.commands.base_velocity.ranges.heading = (-math.pi, math.pi)
