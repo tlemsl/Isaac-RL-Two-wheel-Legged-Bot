@@ -12,25 +12,40 @@ from isaaclab.assets.articulation import ArticulationCfg
 from lab.flamingo.assets.flamingo import FLAMINGO_ASSETS_DATA_DIR
 
 # Shared delayed-PD defaults for Wolf policy training (joint-space, 14 DOF).
+# Tuned 2026-06-15: HAA/HFE/AFE 120/2, KFE 300/15 — see
+# docs/experiments/rl/20260615_wolf_isaac_pd_damping_shake.md
+# (prior 200/10 caused back-leg shake and AFE torque saturation at effort_limit).
 _WOLF_PD_DELAY = dict(min_delay=0, max_delay=4)
-# Plant ID from docs/calibration/lfl_knee_plant.yaml (2026-06-09, Kp500/Kd80 bench).
-# stiffness=80 is RL internal PD; bench MIT parity uses stiffness≈0 (see calibration yaml).
+_WOLF_HIP_PD = dict(stiffness=120.0, damping=2.0)
 _WOLF_KFE_PD = dict(
     effort_limit=600.0,
     velocity_limit=25.0,
-    stiffness=80.0,
-    damping=0.0,
+    stiffness=300.0,
+    damping=15.0,
     friction=0.0,
     armature=0.035,
 )
 _WOLF_AFE_PD = dict(
-    effort_limit=500.0,
+    effort_limit=60.0,
     velocity_limit=25.0,
-    stiffness=80.0,
-    damping=1.0,
+    stiffness=120.0,
+    damping=2.0,
     friction=0.0,
     armature=0.01,
 )
+
+
+def _wolf_hip_delayed_pd(joint_names: list[str]) -> DelayedPDActuatorCfg:
+    return DelayedPDActuatorCfg(
+        joint_names_expr=joint_names,
+        effort_limit=120.0,
+        velocity_limit=20.0,
+        stiffness={name: _WOLF_HIP_PD["stiffness"] for name in joint_names},
+        damping={name: _WOLF_HIP_PD["damping"] for name in joint_names},
+        friction={name: 0.0 for name in joint_names},
+        armature={name: 0.01 for name in joint_names},
+        **_WOLF_PD_DELAY,
+    )
 
 
 def _wolf_knee_delayed_pd(joint_name: str) -> DelayedPDActuatorCfg:
@@ -98,49 +113,21 @@ WOLF_CFG = ArticulationCfg(
     ),
     soft_joint_pos_limit_factor=0.8,
     actuators={
-        "joints_front_left_H": DelayedPDActuatorCfg(
-            joint_names_expr=["HAA_front_left_joint", "HFE_front_left_joint"],
-            effort_limit=120.0,
-            velocity_limit=20.0,
-            stiffness={"HAA_front_left_joint": 80.0, "HFE_front_left_joint": 80.0},
-            damping={"HAA_front_left_joint": 1.0, "HFE_front_left_joint": 1.0},
-            friction={"HAA_front_left_joint": 0.0, "HFE_front_left_joint": 0.0},
-            armature={"HAA_front_left_joint": 0.01, "HFE_front_left_joint": 0.01},
-            **_WOLF_PD_DELAY,
+        "joints_front_left_H": _wolf_hip_delayed_pd(
+            ["HAA_front_left_joint", "HFE_front_left_joint"]
         ),
         "joints_front_left_K": _wolf_knee_delayed_pd("KFE_front_left_joint"),
-        "joints_front_right_H": DelayedPDActuatorCfg(
-            joint_names_expr=["HAA_front_right_joint", "HFE_front_right_joint"],
-            effort_limit=120.0,
-            velocity_limit=20.0,
-            stiffness={"HAA_front_right_joint": 80.0, "HFE_front_right_joint": 80.0},
-            damping={"HAA_front_right_joint": 1.0, "HFE_front_right_joint": 1.0},
-            friction={"HAA_front_right_joint": 0.0, "HFE_front_right_joint": 0.0},
-            armature={"HAA_front_right_joint": 0.01, "HFE_front_right_joint": 0.01},
-            **_WOLF_PD_DELAY,
+        "joints_front_right_H": _wolf_hip_delayed_pd(
+            ["HAA_front_right_joint", "HFE_front_right_joint"]
         ),
         "joints_front_right_K": _wolf_knee_delayed_pd("KFE_front_right_joint"),
-        "joints_back_left_H": DelayedPDActuatorCfg(
-            joint_names_expr=["HAA_back_left_joint", "HFE_back_left_joint"],
-            effort_limit=120.0,
-            velocity_limit=20.0,
-            stiffness={"HAA_back_left_joint": 80.0, "HFE_back_left_joint": 80.0},
-            damping={"HAA_back_left_joint": 1.0, "HFE_back_left_joint": 1.0},
-            friction={"HAA_back_left_joint": 0.0, "HFE_back_left_joint": 0.0},
-            armature={"HAA_back_left_joint": 0.01, "HFE_back_left_joint": 0.01},
-            **_WOLF_PD_DELAY,
+        "joints_back_left_H": _wolf_hip_delayed_pd(
+            ["HAA_back_left_joint", "HFE_back_left_joint"]
         ),
         "joints_back_left_K": _wolf_knee_delayed_pd("KFE_back_left_joint"),
         "joints_back_left_A": _wolf_ankle_delayed_pd("AFE_back_left_joint"),
-        "joints_back_right_H": DelayedPDActuatorCfg(
-            joint_names_expr=["HAA_back_right_joint", "HFE_back_right_joint"],
-            effort_limit=120.0,
-            velocity_limit=20.0,
-            stiffness={"HAA_back_right_joint": 80.0, "HFE_back_right_joint": 80.0},
-            damping={"HAA_back_right_joint": 1.0, "HFE_back_right_joint": 1.0},
-            friction={"HAA_back_right_joint": 0.0, "HFE_back_right_joint": 0.0},
-            armature={"HAA_back_right_joint": 0.01, "HFE_back_right_joint": 0.01},
-            **_WOLF_PD_DELAY,
+        "joints_back_right_H": _wolf_hip_delayed_pd(
+            ["HAA_back_right_joint", "HFE_back_right_joint"]
         ),
         "joints_back_right_K": _wolf_knee_delayed_pd("KFE_back_right_joint"),
         "joints_back_right_A": _wolf_ankle_delayed_pd("AFE_back_right_joint"),

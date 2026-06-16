@@ -31,9 +31,9 @@ parser.add_argument("--plot", type=str2bool, default="False", help="Plot the dat
 parser.add_argument(
     "--analyze",
     type=str,
-    nargs="+",  
+    nargs="+",
     default=None,
-    help="Specify which data to analyze (e.g., cmd_vel joint_vel torque)."
+    help="obs_info terms to log (e.g. joint_vel joint_torque velocity_commands).",
 )
 parser.add_argument("--task", type=str, default=None, help="Name of the task.")
 parser.add_argument("--seed", type=int, default=42, help="Seed used for the environment")
@@ -91,6 +91,14 @@ from lab.flamingo.isaaclab.isaaclab.envs import ManagerBasedConstraintRLEnv, Man
 from isaaclab_tasks.utils import get_checkpoint_path, parse_env_cfg
 
 
+def _parse_analyze_items(raw: list[str]) -> list[str]:
+    """Flatten CLI tokens: supports `--analyze a b` and `--analyze \"a b\"`."""
+    items: list[str] = []
+    for token in raw:
+        items.extend(token.split())
+    return items
+
+
 def main():
     """Play with CO-RL agent."""
     # parse configuration
@@ -140,12 +148,14 @@ def main():
         print("[INFO] Recording videos during training.")
         print_dict(video_kwargs, nesting=4)
         env = gym.wrappers.RecordVideo(env, **video_kwargs)
-    
-    if args_cli.analyze is not None:
-        analyze_items = args_cli.analyze[0].split()
-        analyzer = Analyzer(env=env, analyze_items=analyze_items, log_dir=log_dir)
+
     # wrap around environment for co-rl
     env = CoRlVecEnvWrapper(env, agent_cfg)
+
+    analyzer = None
+    if args_cli.analyze is not None:
+        analyze_items = _parse_analyze_items(args_cli.analyze)
+        analyzer = Analyzer(env=env, analyze_items=analyze_items, log_dir=log_dir)
 
     print(f"[INFO]: Loading model checkpoint from: {resume_path}")
     # load previously trained model
@@ -205,21 +215,26 @@ def main():
             else:
                 actions = policy(obs)
             # clipped_actions = torch.clamp(actions, -1.0, 1.0)
-            obs, _, _, extras = env.step(actions)
+            obs, _, dones, extras = env.step(actions)
         if args_cli.video:
             timestep += 1
             # Exit the play loop after recording one video
             if timestep == args_cli.video_length:
                 break
-                
-        # Extract the relevant slices and convert to numpy
-        if args_cli.analyze is not None:
-            analyzer.append(extras['observations']['obs_info'])
-    
-    env.close()
 
-    if args_cli.analyze is not None:
+        if analyzer is not None:
+            obs_info = extras.get("observations", {}).get("obs_info")
+            if obs_info is None:
+                raise KeyError(
+                    "extras['observations']['obs_info'] missing; "
+                    "ensure obs_info is enabled in the PLAY env cfg."
+                )
+            analyzer.append(obs_info, dones=dones)
+
+    if analyzer is not None:
         analyzer.export()
+
+    env.close()
         
 if __name__ == "__main__":
     # run the main function

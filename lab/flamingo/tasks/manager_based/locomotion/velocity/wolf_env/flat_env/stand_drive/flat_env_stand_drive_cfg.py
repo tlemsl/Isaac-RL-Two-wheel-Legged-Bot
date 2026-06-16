@@ -22,23 +22,23 @@ from lab.flamingo.assets.flamingo.wolf_rev01_0_0 import WOLF_CFG  # isort: skip
 class WolfRewardsCfg():
     # -- task
     track_lin_vel_xy_exp = RewTerm(
-        func=mdp.track_lin_vel_xy_exp, weight=8.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+        func=mdp.track_lin_vel_xy_exp, weight=3.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
     track_ang_vel_z_exp = RewTerm(
-        func=mdp.track_ang_vel_z_exp, weight=4.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+        func=mdp.track_ang_vel_z_exp, weight=2.5, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
 
     flat_euler_angle_l2 = RewTerm(
-        func=mdp.flat_euler_angle_l2, weight=-100.0
+        func=mdp.flat_euler_angle_l2, weight=-20.0
     )
     # -- penalties
-    # termination_penalty = RewTerm(func=mdp.is_terminated, weight=-200.0)
+    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-200.0)
     
     lin_vel_z_l2 = RewTerm(func=mdp.lin_vel_z_l2, weight=-2.0)
     ang_vel_xy_l2 = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
     
     dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight=-1.0e-5)
-    dof_acc_l2 = RewTerm(func=mdp.joint_acc_l2, weight=-2.5e-7)
+    dof_acc_l2 = RewTerm(func=mdp.joint_acc_l2, weight=-1.0e-7)
     action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
     # feet_air_time = RewTerm(
     #     func=mdp.feet_air_time,
@@ -53,13 +53,13 @@ class WolfRewardsCfg():
         func=mdp.undesired_contacts,
         weight=-1.0,
         params={
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=["Thigh_.*", "Shank_.*", "Ankle_.*"]),
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=["base_link", "Thigh_.*", "Shank_.*"]),
             "threshold": 1.0,
         },
     )
     joint_deviation_hip = RewTerm(
         func=mdp.joint_deviation_zero_l1,
-        weight=-4.0,
+        weight=-1.0,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["HAA_.*"])},
     )
     # joint_deviation_knee = RewTerm(
@@ -69,9 +69,15 @@ class WolfRewardsCfg():
     # )
     # joint_deviation_ankle = RewTerm(
     #     func=mdp.joint_deviation_zero_l1,
-    #     weight=-0.5,
+    #     weight=-0.3,
     #     params={"asset_cfg": SceneEntityCfg("robot", joint_names=["AFE_.*"])},
     # )
+    # joint_deviation_hfe = RewTerm(
+    #     func=mdp.joint_deviation_zero_l1,
+    #     weight=-0.5,  # 또는 -1.0
+    #     params={"asset_cfg": SceneEntityCfg("robot", joint_names=["HFE_.*"])},
+    # )
+    
     
     joint_applied_torque_limits = RewTerm(
         func=mdp.applied_torque_limits,
@@ -119,7 +125,7 @@ class WolfFlatEnvCfg(LocomotionVelocityRoughEnvCfg):
         
         # add base mass should be called here
         self.events.add_base_mass.params["asset_cfg"].body_names = ["base_link"]
-        self.events.add_base_mass.params["mass_distribution_params"] = (0.0, 90.0)
+        self.events.add_base_mass.params["mass_distribution_params"] = (0.0, 10.0)
 
 
 
@@ -132,8 +138,8 @@ class WolfFlatEnvCfg(LocomotionVelocityRoughEnvCfg):
 
         # physics material should be called here
         self.events.physics_material.params["asset_cfg"].body_names = ["Foot_.*"]
-        self.events.physics_material.params["static_friction_range"] = (0.3, 2.0)
-        self.events.physics_material.params["dynamic_friction_range"] = (0.3, 1.8)
+        self.events.physics_material.params["static_friction_range"] = (0.3, 1.0)
+        self.events.physics_material.params["dynamic_friction_range"] = (0.3, 0.8)
         
         # reset base should be called here
         self.events.reset_base.params = {
