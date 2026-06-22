@@ -102,84 +102,6 @@ class WolfRewardsCfg():
 
 
 @configclass
-class WolfRewardsCfgRunC(WolfRewardsCfg):
-    """Run C: posture + gait on top of Run B sim2sim DR (flat_env events unchanged)."""
-
-    flat_euler_angle_l2 = RewTerm(
-        func=mdp.flat_euler_angle_l2, weight=-15.0
-    )
-    lin_vel_z_l2 = RewTerm(func=mdp.lin_vel_z_l2, weight=-3.0)
-
-    feet_air_time = RewTerm(
-        func=mdp.feet_air_time,
-        weight=0.01,
-        params={
-            "sensor_cfg": SceneEntityCfg(
-                "contact_forces",
-                body_names=[
-                    "Foot_front_left_link",
-                    "Foot_front_right_link",
-                    "Foot_back_left_link",
-                    "Foot_back_right_link",
-                ],
-            ),
-            "command_name": "base_velocity",
-            "threshold": 0.5,
-        },
-    )
-    joint_deviation_knee = RewTerm(
-        func=mdp.joint_deviation_zero_l1,
-        weight=-0.5,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["KFE_.*"])},
-    )
-    base_height = RewTerm(
-        func=mdp.base_height_adaptive_l2,
-        weight=-25.0,
-        params={
-            "target_height": 0.6,
-            "asset_cfg": SceneEntityCfg("robot", body_names="base_link"),
-        },
-    )
-
-
-@configclass
-class WolfRewardsCfgRunF(WolfRewardsCfg):
-    """Run F: light posture only (avoid Run C bundle)."""
-
-    flat_euler_angle_l2 = RewTerm(func=mdp.flat_euler_angle_l2, weight=-12.0)
-    lin_vel_z_l2 = RewTerm(func=mdp.lin_vel_z_l2, weight=-2.5)
-
-
-@configclass
-class WolfRewardsCfgRunG(WolfRewardsCfgRunF):
-    """Run G: Run F + mild base height (lighter than Run C -25)."""
-
-    base_height = RewTerm(
-        func=mdp.base_height_adaptive_l2,
-        weight=-15.0,
-        params={
-            "target_height": 0.6,
-            "asset_cfg": SceneEntityCfg("robot", body_names="base_link"),
-        },
-    )
-
-
-@configclass
-class WolfRewardsCfgRunH(WolfRewardsCfg):
-    """Run H: tighter velocity tracking on Run E DR (no posture terms)."""
-
-    track_lin_vel_xy_exp = RewTerm(
-        func=mdp.track_lin_vel_xy_exp,
-        weight=3.5,
-        params={"command_name": "base_velocity", "std": math.sqrt(0.15)},
-    )
-    track_ang_vel_z_exp = RewTerm(
-        func=mdp.track_ang_vel_z_exp,
-        weight=3.0,
-        params={"command_name": "base_velocity", "std": math.sqrt(0.15)},
-    )
-
-@configclass
 class WolfFlatEnvCfg(LocomotionVelocityRoughEnvCfg):
 
     rewards: WolfRewardsCfg = WolfRewardsCfg()
@@ -262,54 +184,6 @@ class WolfFlatEnvCfg(LocomotionVelocityRoughEnvCfg):
             # "Shank_.*",
             # "Ankle_.*",
         ]
-
-@configclass
-class WolfFlatEnvCfgRunC(WolfFlatEnvCfg):
-    """Run C train env: Run B DR + WolfRewardsCfgRunC."""
-
-    rewards: WolfRewardsCfgRunC = WolfRewardsCfgRunC()
-
-
-@configclass
-class WolfFlatEnvCfgRunD(WolfFlatEnvCfg):
-    """Run D: baseline rewards; DR nudged toward plant-grid best (g=0.85, f=0.7, m=7.5)."""
-
-    def __post_init__(self):
-        super().__post_init__()
-        self.events.add_base_mass.params["mass_distribution_params"] = (5.0, 7.5)
-        self.events.physics_material.params["static_friction_range"] = (0.75, 0.95)
-        self.events.physics_material.params["dynamic_friction_range"] = (0.45, 0.75)
-
-
-@configclass
-class WolfFlatEnvCfgRunE(WolfFlatEnvCfg):
-    """Run E: Run B DR; static friction biased toward nominal MuJoCo μ=1.0."""
-
-    def __post_init__(self):
-        super().__post_init__()
-        self.events.physics_material.params["static_friction_range"] = (0.85, 1.0)
-        self.events.physics_material.params["dynamic_friction_range"] = (0.55, 0.8)
-
-
-@configclass
-class WolfFlatEnvCfgRunF(WolfFlatEnvCfgRunE):
-    """Run F: Run E DR + WolfRewardsCfgRunF."""
-
-    rewards: WolfRewardsCfgRunF = WolfRewardsCfgRunF()
-
-
-@configclass
-class WolfFlatEnvCfgRunG(WolfFlatEnvCfgRunE):
-    """Run G: Run E DR + WolfRewardsCfgRunG."""
-
-    rewards: WolfRewardsCfgRunG = WolfRewardsCfgRunG()
-
-
-@configclass
-class WolfFlatEnvCfgRunH(WolfFlatEnvCfgRunE):
-    """Run H: Run E DR + tighter vel tracking (skip G — F regressed sim2sim)."""
-
-    rewards: WolfRewardsCfgRunH = WolfRewardsCfgRunH()
 
 
 @configclass
