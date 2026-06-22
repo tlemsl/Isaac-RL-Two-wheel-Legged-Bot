@@ -29,6 +29,66 @@ gym.register(
 )
 
 gym.register(
+    id="Isaac-Velocity-Flat-Wolf-v1-ppo-RunC",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": flat_env.flat_env_stand_drive_cfg.WolfFlatEnvCfgRunC,
+        "co_rl_cfg_entry_point": agents.co_rl_cfg.WolfFlatPPORunnerCfg_Stand_Drive,
+    },
+)
+
+gym.register(
+    id="Isaac-Velocity-Flat-Wolf-v1-ppo-RunD",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": flat_env.flat_env_stand_drive_cfg.WolfFlatEnvCfgRunD,
+        "co_rl_cfg_entry_point": agents.co_rl_cfg.WolfFlatPPORunnerCfg_Stand_Drive,
+    },
+)
+
+gym.register(
+    id="Isaac-Velocity-Flat-Wolf-v1-ppo-RunE",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": flat_env.flat_env_stand_drive_cfg.WolfFlatEnvCfgRunE,
+        "co_rl_cfg_entry_point": agents.co_rl_cfg.WolfFlatPPORunnerCfg_Stand_Drive,
+    },
+)
+
+gym.register(
+    id="Isaac-Velocity-Flat-Wolf-v1-ppo-RunF",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": flat_env.flat_env_stand_drive_cfg.WolfFlatEnvCfgRunF,
+        "co_rl_cfg_entry_point": agents.co_rl_cfg.WolfFlatPPORunnerCfg_Stand_Drive,
+    },
+)
+
+gym.register(
+    id="Isaac-Velocity-Flat-Wolf-v1-ppo-RunG",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": flat_env.flat_env_stand_drive_cfg.WolfFlatEnvCfgRunG,
+        "co_rl_cfg_entry_point": agents.co_rl_cfg.WolfFlatPPORunnerCfg_Stand_Drive,
+    },
+)
+
+gym.register(
+    id="Isaac-Velocity-Flat-Wolf-v1-ppo-RunH",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": flat_env.flat_env_stand_drive_cfg.WolfFlatEnvCfgRunH,
+        "co_rl_cfg_entry_point": agents.co_rl_cfg.WolfFlatPPORunnerCfg_Stand_Drive,
+    },
+)
+
+gym.register(
     id="Isaac-Velocity-Flat-Wolf-v1-ppo-Play",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     disable_env_checker=True,

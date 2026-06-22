@@ -198,8 +198,14 @@ def main():
                 runner.alg.srm, runner.alg.srm_fc, device=agent_cfg.device, path=export_model_dir, filename="srm.onnx"
             )
     
-    # export environment to pdf
-    export_env_as_pdf(yaml_path=os.path.join(log_dir, "params", "env.yaml"), pdf_path=os.path.join(export_model_dir, "env.pdf"))
+    # export environment to pdf (non-fatal: policy ONNX/JIT already exported above)
+    try:
+        export_env_as_pdf(
+            yaml_path=os.path.join(log_dir, "params", "env.yaml"),
+            pdf_path=os.path.join(export_model_dir, "env.pdf"),
+        )
+    except Exception as exc:
+        print(f"Warning: env.pdf export failed ({exc}); continuing play loop.")
 
 
     # reset environment

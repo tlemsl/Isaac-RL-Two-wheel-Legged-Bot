@@ -47,6 +47,29 @@ def export_env_as_pdf(yaml_path: str, pdf_path: str = None) -> None:
     body_style     = styles['BodyText']
     body_style.wordWrap = 'CJK'
 
+    def _cell(text, style=None):
+        """ReportLab SPAN cells must use '' (not empty Paragraph) or row heights become None."""
+        if text is None or text == '':
+            return ''
+        return Paragraph(str(text), style or body_style)
+
+    def _table(data, col_widths, span_cmds=None, *, split=True):
+        kwargs = {'colWidths': col_widths}
+        if split:
+            kwargs['repeatRows'] = 1
+            kwargs['splitByRow'] = 1
+        tbl = Table(data, **kwargs)
+        style_cmds = [
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4F81BD')),
+            ('TEXTCOLOR',  (0, 0), (-1, 0), colors.white),
+            ('VALIGN',     (0, 0), (-1, -1), 'TOP'),
+            ('GRID',       (0, 0), (-1, -1), 0.5, colors.black),
+        ]
+        if span_cmds:
+            style_cmds.extend(span_cmds)
+        tbl.setStyle(TableStyle(style_cmds))
+        return tbl
+
     elements = []
 
     # --- 커버 페이지 ---
@@ -59,7 +82,7 @@ def export_env_as_pdf(yaml_path: str, pdf_path: str = None) -> None:
     elements.append(Paragraph('[Scene Robot Actuators]', header_style))
     elements.append(Spacer(1, 0.2 * inch))
     actuators = data.get('scene', {}).get('robot', {}).get('actuators', {}) or {}
-    act_data = [[Paragraph('actuator', subhdr_style), Paragraph('property', subhdr_style), Paragraph('value', subhdr_style)]]
+    act_data = [[_cell('actuator', subhdr_style), _cell('property', subhdr_style), _cell('value', subhdr_style)]]
     spans = []
     idx = 1
     # 행 데이터 채우기...
@@ -72,9 +95,9 @@ def export_env_as_pdf(yaml_path: str, pdf_path: str = None) -> None:
                     sub_start = idx
                     for i, (k, v) in enumerate(val.items()):
                         act_data.append([
-                            Paragraph(name, body_style) if first else Paragraph('', body_style),
-                            Paragraph(prop, body_style) if i == 0 else Paragraph('', body_style),
-                            Paragraph(f"{k}: {v}", body_style)
+                            _cell(name) if first else '',
+                            _cell(prop) if i == 0 else '',
+                            _cell(f"{k}: {v}"),
                         ])
                         idx += 1; first = False
                     sub_end = idx - 1
@@ -82,25 +105,18 @@ def export_env_as_pdf(yaml_path: str, pdf_path: str = None) -> None:
                         spans.append(('SPAN', (1, sub_start), (1, sub_end)))
                 else:
                     act_data.append([
-                        Paragraph(name, body_style) if first else Paragraph('', body_style),
-                        Paragraph(prop, body_style),
-                        Paragraph(str(val), body_style)
+                        _cell(name) if first else '',
+                        _cell(prop),
+                        _cell(str(val)),
                     ])
                     idx += 1; first = False
         else:
-            act_data.append([Paragraph(name, body_style), Paragraph('', body_style), Paragraph(str(cfg), body_style)])
+            act_data.append([_cell(name), '', _cell(str(cfg))])
             idx += 1
         end = idx - 1
         if end > start:
             spans.append(('SPAN', (0, start), (0, end)))
-    table = Table(act_data, colWidths=[120, 140, 220])
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4F81BD')),
-        ('TEXTCOLOR',  (0, 0), (-1, 0), colors.white),
-        ('VALIGN',     (0, 0), (-1, -1), 'TOP'),
-        ('GRID',       (0, 0), (-1, -1), 0.5, colors.black),
-    ] + spans))
-    elements.append(table)
+    elements.append(_table(act_data, [120, 140, 220], spans))
     elements.append(Spacer(1, 0.5 * inch))
 
     # --- Actions Table ---
@@ -108,7 +124,7 @@ def export_env_as_pdf(yaml_path: str, pdf_path: str = None) -> None:
     elements.append(Paragraph('[Actions]', header_style))
     elements.append(Spacer(1, 0.2 * inch))
     actions = data.get('actions', {}) or {}
-    act_data, spans = [[Paragraph('action', subhdr_style), Paragraph('property', subhdr_style), Paragraph('value', subhdr_style)]], []
+    act_data, spans = [[_cell('action', subhdr_style), _cell('property', subhdr_style), _cell('value', subhdr_style)]], []
     idx = 1
     for name, cfg in actions.items():
         start = idx; first = True
@@ -118,9 +134,9 @@ def export_env_as_pdf(yaml_path: str, pdf_path: str = None) -> None:
                     sub_start = idx
                     for i, item in enumerate(val):
                         act_data.append([
-                            Paragraph(name, body_style) if first else Paragraph('', body_style),
-                            Paragraph(prop, body_style) if i == 0 else Paragraph('', body_style),
-                            Paragraph(str(item), body_style)
+                            _cell(name) if first else '',
+                            _cell(prop) if i == 0 else '',
+                            _cell(str(item)),
                         ])
                         idx += 1; first = False
                     sub_end = idx - 1
@@ -130,9 +146,9 @@ def export_env_as_pdf(yaml_path: str, pdf_path: str = None) -> None:
                     sub_start = idx
                     for i, (k, v) in enumerate(val.items()):
                         act_data.append([
-                            Paragraph(name, body_style) if first else Paragraph('', body_style),
-                            Paragraph(prop, body_style) if i == 0 else Paragraph('', body_style),
-                            Paragraph(f"{k}: {v}", body_style)
+                            _cell(name) if first else '',
+                            _cell(prop) if i == 0 else '',
+                            _cell(f"{k}: {v}"),
                         ])
                         idx += 1; first = False
                     sub_end = idx - 1
@@ -140,25 +156,18 @@ def export_env_as_pdf(yaml_path: str, pdf_path: str = None) -> None:
                         spans.append(('SPAN', (1, sub_start), (1, sub_end)))
                 else:
                     act_data.append([
-                        Paragraph(name, body_style) if first else Paragraph('', body_style),
-                        Paragraph(prop, body_style),
-                        Paragraph(str(val), body_style)
+                        _cell(name) if first else '',
+                        _cell(prop),
+                        _cell(str(val)),
                     ])
                     idx += 1; first = False
         else:
-            act_data.append([Paragraph(name, body_style), Paragraph('', body_style), Paragraph(str(cfg), body_style)])
+            act_data.append([_cell(name), '', _cell(str(cfg))])
             idx += 1
         end = idx - 1
         if end > start:
             spans.append(('SPAN', (0, start), (0, end)))
-    table = Table(act_data, colWidths=[120, 140, 220])
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4F81BD')),
-        ('TEXTCOLOR',  (0, 0), (-1, 0), colors.white),
-        ('VALIGN',     (0, 0), (-1, -1), 'TOP'),
-        ('GRID',       (0, 0), (-1, -1), 0.5, colors.black),
-    ] + spans))
-    elements.append(table)
+    elements.append(_table(act_data, [120, 140, 220], spans))
     elements.append(Spacer(1, 0.5 * inch))
 
     # --- Rewards Table (새 페이지에서 시작) ---
@@ -166,39 +175,43 @@ def export_env_as_pdf(yaml_path: str, pdf_path: str = None) -> None:
     elements.append(Paragraph('[Rewards]', header_style))
     elements.append(Spacer(1, 0.2 * inch))
     rewards = data.get('rewards', {}) or {}
-    rew_data, spans = [[Paragraph('reward', subhdr_style), Paragraph('weight', subhdr_style), Paragraph('param', subhdr_style)]], []
+    rew_data, spans = [[_cell('reward', subhdr_style), _cell('weight', subhdr_style), _cell('param', subhdr_style)]], []
     idx = 1
     for name, r in rewards.items():
         if not isinstance(r, dict):
             continue  # 또는 경고 출력 후 continue
         start = idx
         first = True
-        for k, v in (r.get('params') or {}).items():
+        params = r.get('params') or {}
+        if not params:
             rew_data.append([
-                Paragraph(name, body_style) if first else Paragraph('', body_style),
-                Paragraph(str(r.get('weight', '')), body_style) if first else Paragraph('', body_style),
-                Paragraph(f"{k}: {v!r}", body_style)
+                _cell(name),
+                _cell(str(r.get('weight', ''))),
+                _cell('(none)'),
             ])
             idx += 1
-            first = False
+        else:
+            for k, v in params.items():
+                rew_data.append([
+                    _cell(name) if first else '',
+                    _cell(str(r.get('weight', ''))) if first else '',
+                    _cell(f"{k}: {v!r}"),
+                ])
+                idx += 1
+                first = False
         end = idx - 1
         if end > start:
             spans.extend([
                 ('SPAN', (0, start), (0, end)),
                 ('SPAN', (1, start), (1, end))
             ])
-    table = Table(rew_data, colWidths=[120, 60, 320])
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4F81BD')),
-        ('TEXTCOLOR',  (0, 0), (-1, 0), colors.white),
+    rew_style = spans + [
         ('ALIGN',      (0, 0), (-1, -1), 'LEFT'),
         ('FONTNAME',   (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE',   (0, 0), (-1, 0), 12),
-        ('VALIGN',     (0, 0), (-1, -1), 'TOP'),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-        ('GRID',       (0, 0), (-1, -1), 0.5, colors.black),
-    ] + spans))
-    elements.append(table)
+    ]
+    elements.append(_table(rew_data, [120, 60, 320], rew_style))
     elements.append(Spacer(1, 0.5 * inch))
 
     # --- Events Table (새 페이지에서 시작) ---
@@ -206,7 +219,7 @@ def export_env_as_pdf(yaml_path: str, pdf_path: str = None) -> None:
     elements.append(Paragraph('[Events]', header_style))
     elements.append(Spacer(1, 0.2 * inch))
     events = data.get('events', {}) or {}
-    evt_data, spans = [[Paragraph('event', subhdr_style), Paragraph('property', subhdr_style), Paragraph('value', subhdr_style)]], []
+    evt_data, spans = [[_cell('event', subhdr_style), _cell('property', subhdr_style), _cell('value', subhdr_style)]], []
     idx = 1
     for name, cfg in events.items():
         start = idx; first = True
@@ -216,9 +229,9 @@ def export_env_as_pdf(yaml_path: str, pdf_path: str = None) -> None:
                     sub_start = idx
                     for i, item in enumerate(val):
                         evt_data.append([
-                            Paragraph(name, body_style) if first else Paragraph('', body_style),
-                            Paragraph(prop, body_style) if i == 0 else Paragraph('', body_style),
-                            Paragraph(str(item), body_style)
+                            _cell(name) if first else '',
+                            _cell(prop) if i == 0 else '',
+                            _cell(str(item)),
                         ])
                         idx += 1; first = False
                     sub_end = idx - 1
@@ -228,9 +241,9 @@ def export_env_as_pdf(yaml_path: str, pdf_path: str = None) -> None:
                     sub_start = idx
                     for i, (k, v) in enumerate(val.items()):
                         evt_data.append([
-                            Paragraph(name, body_style) if first else Paragraph('', body_style),
-                            Paragraph(prop, body_style) if i == 0 else Paragraph('', body_style),
-                            Paragraph(f"{k}: {v}", body_style)
+                            _cell(name) if first else '',
+                            _cell(prop) if i == 0 else '',
+                            _cell(f"{k}: {v}"),
                         ])
                         idx += 1; first = False
                     sub_end = idx - 1
@@ -238,24 +251,18 @@ def export_env_as_pdf(yaml_path: str, pdf_path: str = None) -> None:
                         spans.append(('SPAN', (1, sub_start), (1, sub_end)))
                 else:
                     evt_data.append([
-                        Paragraph(name, body_style) if first else Paragraph('', body_style),
-                        Paragraph(prop, body_style), Paragraph(str(val), body_style)
+                        _cell(name) if first else '',
+                        _cell(prop),
+                        _cell(str(val)),
                     ])
                     idx += 1; first = False
         else:
-            evt_data.append([Paragraph(name, body_style), Paragraph('', body_style), Paragraph(str(cfg), body_style)])
+            evt_data.append([_cell(name), '', _cell(str(cfg))])
             idx += 1
         end = idx - 1
         if end > start:
             spans.append(('SPAN', (0, start), (0, end)))
-    table = Table(evt_data, colWidths=[120, 140, 220])
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4F81BD')),
-        ('TEXTCOLOR',  (0, 0), (-1, 0), colors.white),
-        ('VALIGN',     (0, 0), (-1, -1), 'TOP'),
-        ('GRID',       (0, 0), (-1, -1), 0.5, colors.black),
-    ] + spans))
-    elements.append(table)
+    elements.append(_table(evt_data, [120, 140, 220], spans))
 
 
     # --- Observations Table ---
@@ -266,10 +273,10 @@ def export_env_as_pdf(yaml_path: str, pdf_path: str = None) -> None:
     observations = data.get('observations', {}) or {}
 
     obs_data = [[
-        Paragraph('group', subhdr_style),
-        Paragraph('term', subhdr_style),
-        Paragraph('property', subhdr_style),
-        Paragraph('value', subhdr_style),
+        _cell('group', subhdr_style),
+        _cell('term', subhdr_style),
+        _cell('property', subhdr_style),
+        _cell('value', subhdr_style),
     ]]
     spans = []
     obs_idx = 1
@@ -281,9 +288,9 @@ def export_env_as_pdf(yaml_path: str, pdf_path: str = None) -> None:
         segment_start = row_start
         while segment_start <= row_end:
             segment_end = min(segment_start + MAX_SAFE_SPAN_ROWS - 1, row_end)
-            obs_data[segment_start][col] = Paragraph(str(label_text), body_style)
+            obs_data[segment_start][col] = _cell(label_text)
             for rr in range(segment_start + 1, segment_end + 1):
-                obs_data[rr][col] = Paragraph('', body_style)
+                obs_data[rr][col] = ''
             if segment_end > segment_start:
                 spans.append(('SPAN', (col, segment_start), (col, segment_end)))
             segment_start = segment_end + 1
@@ -320,10 +327,10 @@ def export_env_as_pdf(yaml_path: str, pdf_path: str = None) -> None:
 
         if not isinstance(group_cfg, dict):
             obs_data.append([
-                Paragraph(str(group_name), body_style),
-                Paragraph('[group]', body_style),
-                Paragraph('value', body_style),
-                Paragraph(_fmt_obs_value(group_cfg), body_style),
+                _cell(group_name),
+                _cell('[group]'),
+                _cell('value'),
+                _cell(_fmt_obs_value(group_cfg)),
             ])
             obs_idx += 1
             continue
@@ -334,10 +341,10 @@ def export_env_as_pdf(yaml_path: str, pdf_path: str = None) -> None:
         meta_start = obs_idx
         for meta_key in meta_keys_in_group:
             obs_data.append([
-                Paragraph(str(group_name), body_style) if group_first_row else Paragraph('', body_style),
-                Paragraph('[group]', body_style) if meta_first_row else Paragraph('', body_style),
-                Paragraph(str(meta_key), body_style),
-                Paragraph(_fmt_obs_value(group_cfg.get(meta_key)), body_style),
+                _cell(group_name) if group_first_row else '',
+                _cell('[group]') if meta_first_row else '',
+                _cell(meta_key),
+                _cell(_fmt_obs_value(group_cfg.get(meta_key))),
             ])
             obs_idx += 1
             group_first_row = False
@@ -351,15 +358,14 @@ def export_env_as_pdf(yaml_path: str, pdf_path: str = None) -> None:
                 continue
 
             term_start = obs_idx
-            term_first_row = True
 
-            # null term
+            # null term (e.g. base_lin_vel_x = None)
             if term_cfg is None:
                 obs_data.append([
-                    Paragraph(str(group_name), body_style) if group_first_row else Paragraph('', body_style),
-                    Paragraph(str(term_name), body_style),
-                    Paragraph('value', body_style),
-                    Paragraph('null', body_style),
+                    _cell(group_name) if group_first_row else '',
+                    _cell(term_name),
+                    _cell('value'),
+                    _cell('null'),
                 ])
                 obs_idx += 1
                 group_first_row = False
@@ -367,22 +373,23 @@ def export_env_as_pdf(yaml_path: str, pdf_path: str = None) -> None:
 
             # normal term dict
             if isinstance(term_cfg, dict):
+                term_first_row = True
                 for prop, val in term_cfg.items():
                     obs_data.append([
-                        Paragraph(str(group_name), body_style) if group_first_row else Paragraph('', body_style),
-                        Paragraph(str(term_name), body_style) if term_first_row else Paragraph('', body_style),
-                        Paragraph(str(prop), body_style),
-                        Paragraph(_fmt_obs_value(val), body_style),
+                        _cell(group_name) if group_first_row else '',
+                        _cell(term_name) if term_first_row else '',
+                        _cell(prop),
+                        _cell(_fmt_obs_value(val)),
                     ])
                     obs_idx += 1
                     group_first_row = False
                     term_first_row = False
             else:
                 obs_data.append([
-                    Paragraph(str(group_name), body_style) if group_first_row else Paragraph('', body_style),
-                    Paragraph(str(term_name), body_style),
-                    Paragraph('value', body_style),
-                    Paragraph(_fmt_obs_value(term_cfg), body_style),
+                    _cell(group_name) if group_first_row else '',
+                    _cell(term_name),
+                    _cell('value'),
+                    _cell(_fmt_obs_value(term_cfg)),
                 ])
                 obs_idx += 1
                 group_first_row = False
@@ -394,17 +401,15 @@ def export_env_as_pdf(yaml_path: str, pdf_path: str = None) -> None:
         _add_safe_span(0, group_start, group_end, str(group_name))
 
     obs_col_widths = [95, 130, 110, 205]
-    obs_table_style = [
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4F81BD')),
-        ('TEXTCOLOR',  (0, 0), (-1, 0), colors.white),
-        ('VALIGN',     (0, 0), (-1, -1), 'TOP'),
-        ('GRID',       (0, 0), (-1, -1), 0.5, colors.black),
+    obs_table_style = spans + [
+        ('ALIGN',      (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME',   (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE',   (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
     ]
-    obs_table = Table(obs_data, colWidths=obs_col_widths)
-    obs_table.setStyle(TableStyle(obs_table_style + spans))
+    obs_table = _table(obs_data, obs_col_widths, obs_table_style)
     obs_table_index = len(elements)
     elements.append(obs_table)
-    elements.append(Spacer(1, 0.5 * inch))
 
     def _make_doc():
         return SimpleDocTemplate(
@@ -423,18 +428,32 @@ def export_env_as_pdf(yaml_path: str, pdf_path: str = None) -> None:
             onLaterPages=_on_page
         )
 
+    def _minimal_yaml_pdf():
+        with open(yaml_path, 'r', encoding='utf-8') as f:
+            raw = f.read()
+        # reportlab Paragraph XML escape
+        raw = raw.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        minimal = [
+            Paragraph('Environment Parameters', title_style),
+            Spacer(1, 0.3 * inch),
+            Paragraph(f"Exported from: {os.path.basename(yaml_path)}", body_style),
+            Spacer(1, 0.2 * inch),
+            Paragraph(f'<font name="Courier" size="7"><pre>{raw}</pre></font>', body_style),
+        ]
+        _build(_make_doc(), minimal)
+
     try:
         _build(_make_doc(), elements)
-    except TypeError as err:
-        err_msg = str(err)
-        if "NoneType" in err_msg and "int" in err_msg and "not supported" in err_msg:
-            obs_table_no_span = Table(obs_data, colWidths=obs_col_widths)
-            obs_table_no_span.setStyle(TableStyle(obs_table_style))
-            fallback_elements = list(elements)
-            fallback_elements[obs_table_index] = obs_table_no_span
+    except Exception as err:
+        print(f"Warning: env PDF table layout failed ({err}); retrying without observation spans...")
+        obs_table_no_span = _table(obs_data, obs_col_widths)
+        fallback_elements = list(elements)
+        fallback_elements[obs_table_index] = obs_table_no_span
+        try:
             _build(_make_doc(), fallback_elements)
-        else:
-            raise
+        except Exception as err2:
+            print(f"Warning: env PDF fallback failed ({err2}); writing raw YAML PDF...")
+            _minimal_yaml_pdf()
     print(f"env.pdf generated: {pdf_path}")
 
 def export_policy_as_jit(actor_critic: object, normalizer: object | None, path: str, filename="policy.pt"):
