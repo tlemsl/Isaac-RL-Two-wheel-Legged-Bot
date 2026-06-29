@@ -22,7 +22,7 @@ from lab.flamingo.assets.flamingo.wolf_rev01_0_0 import WOLF_CFG  # isort: skip
 class WolfRewardsCfg():
     # -- task
     track_lin_vel_xy_exp = RewTerm(
-        func=mdp.track_lin_vel_xy_exp, weight=3.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+        func=mdp.track_lin_vel_xy_exp, weight=6.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_exp, weight=3.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
@@ -37,8 +37,8 @@ class WolfRewardsCfg():
     lin_vel_z_l2 = RewTerm(func=mdp.lin_vel_z_l2, weight=-2.0)
     ang_vel_xy_l2 = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
     
-    dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight=-1.0e-6)
-    dof_acc_l2 = RewTerm(func=mdp.joint_acc_l2, weight=-1.0e-7)
+    dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight=-1.0e-5)
+    dof_acc_l2 = RewTerm(func=mdp.joint_acc_l2, weight=-1.0e-6)
     action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
     # feet_air_time = RewTerm(
     #     func=mdp.feet_air_time,
@@ -84,11 +84,11 @@ class WolfRewardsCfg():
     # )
     
     
-    joint_applied_torque_limits = RewTerm(
-        func=mdp.applied_torque_limits,
-        weight=-0.1,  # default: -0.1
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=".*_joint")},
-    )
+    # joint_applied_torque_limits = RewTerm(
+    #     func=mdp.applied_torque_limits,
+    #     weight=-0.1,  # default: -0.1
+    #     params={"asset_cfg": SceneEntityCfg("robot", joint_names=".*_joint")},
+    # )
 
     # base_height = RewTerm(
     #     func=mdp.base_height_adaptive_l2,
@@ -134,7 +134,7 @@ class WolfFlatEnvCfg(LocomotionVelocityRoughEnvCfg):
         # add base mass should be called here
         self.events.add_base_mass.params["asset_cfg"].body_names = ["base_link"]
         # sim2sim DR: center on MuJoCo eval isaac_extra_base_mass=5 kg (was 0..10)
-        self.events.add_base_mass.params["mass_distribution_params"] = (2.5, 7.5)
+        self.events.add_base_mass.params["mass_distribution_params"] = (2.5, 15.0)
 
         # sim2sim DR: COM near MuJoCo payload_com_offset=0 (was parent -0.02,-0.02)
         self.events.randomize_com_positions.params["com_distribution_params"] = (-0.01, 0.01)
@@ -150,8 +150,8 @@ class WolfFlatEnvCfg(LocomotionVelocityRoughEnvCfg):
         # physics material should be called here
         self.events.physics_material.params["asset_cfg"].body_names = [".*_link"]
         # sim2sim DR: narrow toward MuJoCo eval μ≈1.0 (was 0.3–1.0 / 0.3–0.8)
-        self.events.physics_material.params["static_friction_range"] = (0.7, 1.0)
-        self.events.physics_material.params["dynamic_friction_range"] = (0.5, 0.8)
+        self.events.physics_material.params["static_friction_range"] = (0.1, 1.5)
+        self.events.physics_material.params["dynamic_friction_range"] = (0.1, 1.0)
 
         # sim2sim DR: tighter PD gain spread (actuator delay 0–4 unchanged in wolf_rev01)
         self.events.randomize_joint_actuator_gains.params["stiffness_distribution_params"] = (0.9, 1.1)
@@ -171,7 +171,7 @@ class WolfFlatEnvCfg(LocomotionVelocityRoughEnvCfg):
         }
 
         # commands
-        self.commands.base_velocity.ranges.lin_vel_x = (-2.0, 2.0)
+        self.commands.base_velocity.ranges.lin_vel_x = (-2.0, 6.0)
         self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
         self.commands.base_velocity.ranges.ang_vel_z = (-1.5, 1.5)
         self.commands.base_velocity.ranges.heading = (-math.pi, math.pi)

@@ -16,12 +16,12 @@ from lab.flamingo.assets.flamingo import FLAMINGO_ASSETS_DATA_DIR
 # docs/experiments/rl/20260615_wolf_isaac_pd_damping_shake.md
 # (prior 200/10 caused back-leg shake and AFE torque saturation at effort_limit).
 _WOLF_PD_DELAY = dict(min_delay=0, max_delay=4)
-_WOLF_HIP_PD = dict(stiffness=150.0, damping=2.0)
+_WOLF_HIP_PD = dict(stiffness=150.0, damping=1.5)
 _WOLF_KFE_PD = dict(
     effort_limit=600.0,
     velocity_limit=25.0,
-    stiffness=300.0,
-    damping=15.0,
+    stiffness=150.0,
+    damping=1.5,
     friction=0.0,
     armature=0.035,
 )
@@ -29,7 +29,7 @@ _WOLF_AFE_PD = dict(
     effort_limit=60.0,
     velocity_limit=25.0,
     stiffness=150.0,
-    damping=2.0,
+    damping=1.5,
     friction=0.0,
     armature=0.01,
 )
