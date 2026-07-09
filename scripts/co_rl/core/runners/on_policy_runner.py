@@ -288,6 +288,22 @@ class OnPolicyRunner:
         self.current_learning_iteration = loaded_dict["iter"]
         return loaded_dict["infos"]
 
+    def load_actor_from_checkpoint(self, path: str):
+        """Warm-start actor (and std) from another run; critic stays randomly initialized."""
+        loaded_dict = torch.load(path, map_location=self.device)
+        pretrained = loaded_dict["model_state_dict"]
+        current = self.alg.actor_critic.state_dict()
+        actor_state = {
+            k: v
+            for k, v in pretrained.items()
+            if (k.startswith("actor.") or k == "std") and k in current and current[k].shape == v.shape
+        }
+        if not actor_state:
+            raise ValueError(f"No compatible actor weights found in checkpoint: {path}")
+        current.update(actor_state)
+        self.alg.actor_critic.load_state_dict(current)
+        print(f"[INFO] Warm-started actor from {path} ({len(actor_state)} tensors)")
+
     def get_inference_policy(self, device=None):
         self.eval_mode()  # switch to evaluation mode (dropout for example)
         if device is not None:

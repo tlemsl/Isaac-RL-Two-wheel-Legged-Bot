@@ -6,66 +6,60 @@ import math
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
-import isaaclab.sim as sim_utils
-from isaaclab.assets import AssetBaseCfg
-from isaaclab.managers import CurriculumTermCfg as CurrTerm
-import lab.flamingo.tasks.manager_based.locomotion.velocity.mdp as mdp
-import lab.flamingo.tasks.manager_based.locomotion.velocity.wolf_env.rough_env.stand_drive.drive_rewards as mdp_drive
+
 from lab.flamingo.tasks.manager_based.locomotion.velocity.wolf_env.velocity_env_cfg import (
     LocomotionVelocityRoughEnvCfg,
-    CurriculumCfg,
 )
+from lab.flamingo.tasks.manager_based.locomotion.velocity.wolf_env.rough_reward_tune import apply_rough_reward_profile
+import lab.flamingo.tasks.manager_based.locomotion.velocity.mdp as mdp
 
 from lab.flamingo.assets.flamingo.wolf_rev01_0_0 import WOLF_CFG  # isort: skip
 
 
 @configclass
 class WolfRewardsCfg():
-    # -- task
+    # -- task (no flat_euler: allow pitch/roll on uneven ground)
     track_lin_vel_xy_exp = RewTerm(
-        func=mdp.track_lin_vel_xy_exp, weight=1.5, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+        func=mdp.track_lin_vel_xy_exp, weight=4.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
     track_ang_vel_z_exp = RewTerm(
-        func=mdp.track_ang_vel_z_exp, weight=0.75, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+        func=mdp.track_ang_vel_z_exp, weight=3.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
     # -- penalties
     termination_penalty = RewTerm(func=mdp.is_terminated, weight=-200.0)
-    
+
     lin_vel_z_l2 = RewTerm(func=mdp.lin_vel_z_l2, weight=-2.0)
     ang_vel_xy_l2 = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
-    
-    dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight=-0.0002)
-    dof_acc_l2 = RewTerm(func=mdp.joint_acc_l2, weight=-2.5e-7)
-    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
-    feet_air_time = RewTerm(
-        func=mdp.feet_air_time,
-        weight=0.01,
-        params={
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=["Shank_front_left_link", "Shank_front_right_link", "Ankle_back_left_link", "Ankle_back_right_link"]),
-            "command_name": "base_velocity",
-            "threshold": 0.5,
-        },
-    )
+
+    dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight=-1.0e-5)
+    dof_acc_l2 = RewTerm(func=mdp.joint_acc_l2, weight=-1.0e-6)
+    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.03)
     undesired_contacts = RewTerm(
         func=mdp.undesired_contacts,
-        weight=-0.5,
+        weight=-20.0,
         params={
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=["Thigh_.*"]),
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=["base_link", "Thigh_.*", "Shank_.*"]),
             "threshold": 1.0,
         },
     )
-    joint_deviation_hip = RewTerm(
+    joint_deviation_hip_front = RewTerm(
         func=mdp.joint_deviation_zero_l1,
         weight=-1.0,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["HAA_.*"])},
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["HAA_front.*"])},
     )
-    
+    joint_deviation_hip_back = RewTerm(
+        func=mdp.joint_deviation_zero_l1,
+        weight=-2.0,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["HAA_back.*"])},
+    )
+
     joint_applied_torque_limits = RewTerm(
         func=mdp.applied_torque_limits,
-        weight=-0.1,  # default: -0.1
+        weight=-0.1,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=".*_joint")},
     )
-    
+
+
 @configclass
 class WolfRoughEnvCfg(LocomotionVelocityRoughEnvCfg):
 
@@ -76,21 +70,36 @@ class WolfRoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         super().__post_init__()
         # scene
         self.scene.robot = WOLF_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+        # easier terrain curriculum start
+        self.scene.terrain.max_init_terrain_level = 2
+
+        # Policy obs: match flat/deploy contract (147-dim) — no height_scan, no base_lin_vel.
+        # Critic keeps height_scan as privileged terrain cue during training.
+        self.observations.none_stack_policy.height_scan = None
+        self.observations.none_stack_policy.base_lin_vel_x = None
+        self.observations.none_stack_policy.base_lin_vel_y = None
+        self.observations.none_stack_policy.base_lin_vel_z = None
 
         # reset_robot_joint_zero should be called here
-        self.events.reset_robot_joints.params["position_range"] = (-0.1, 0.1)
-        # self.events.push_robot = True
-        self.events.push_robot.interval_range_s = (10.0, 15.0)
+        self.events.reset_robot_joints.params["position_range"] = (-0.15, 0.15)
+
+        self.events.push_robot.interval_range_s = (13.0, 15.0)
         self.events.push_robot.params = {
-            "velocity_range": {"x": (-1.0, 1.0), "y": (-1.0, 1.0), "z": (-1.0, 1.0)},
+            "velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "z": (-0.5, 0.5)},
         }
 
         # add base mass should be called here
         self.events.add_base_mass.params["asset_cfg"].body_names = ["base_link"]
-        self.events.add_base_mass.params["mass_distribution_params"] = (-1.0, 3.0)
+        self.events.add_base_mass.params["mass_distribution_params"] = (5.5, 20.0)
+
+        # sim2sim DR: COM near MuJoCo payload_com_offset=0
+        self.events.randomize_com_positions.params["com_distribution_params"] = (-0.05, 0.05)
 
         # physics material should be called here
         self.events.physics_material.params["asset_cfg"].body_names = [".*_link"]
+        self.events.physics_material.params["static_friction_range"] = (0.3, 1.0)
+        self.events.physics_material.params["dynamic_friction_range"] = (0.3, 0.8)
+
         self.events.reset_base.params = {
             "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "yaw": (-3.14, 3.14)},
             "velocity_range": {
@@ -103,12 +112,12 @@ class WolfRoughEnvCfg(LocomotionVelocityRoughEnvCfg):
             },
         }
 
-        # commands
+        # commands (narrower for rough bootstrap)
         self.commands.base_velocity.ranges.lin_vel_x = (-1.5, 1.5)
         self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
-        self.commands.base_velocity.ranges.ang_vel_z = (-2.5, 2.5)
+        self.commands.base_velocity.ranges.ang_vel_z = (-1.0, 1.0)
         self.commands.base_velocity.ranges.heading = (-math.pi, math.pi)
-        
+
         if getattr(self.curriculum, "terrain_levels", None) is not None:
             if self.scene.terrain.terrain_generator is not None:
                 self.scene.terrain.terrain_generator.curriculum = True
@@ -116,10 +125,13 @@ class WolfRoughEnvCfg(LocomotionVelocityRoughEnvCfg):
             if self.scene.terrain.terrain_generator is not None:
                 self.scene.terrain.terrain_generator.curriculum = False
 
-        # terminations
+        # terminations: base only on rough (hip/thigh scrape on uneven ground)
         self.terminations.base_contact.params["sensor_cfg"].body_names = [
             "base_link",
         ]
+
+        apply_rough_reward_profile(self)
+
 
 @configclass
 class WolfRoughEnvCfg_PLAY(WolfRoughEnvCfg):
@@ -132,23 +144,6 @@ class WolfRoughEnvCfg_PLAY(WolfRoughEnvCfg):
         self.scene.env_spacing = 2.5
         # spawn the robot randomly in the grid (instead of their terrain levels)
         self.scene.terrain.max_init_terrain_level = None
-        
-        # # change terrain to flat
-        # self.scene.terrain.terrain_type = "plane"
-        # self.scene.terrain.terrain_generator = None
-
-        # # Terrain curriculum
-        # self.curriculum.terrain_levels = None
-        
-        self.scene.sky_light = AssetBaseCfg(
-            prim_path="/World/SkyDome",
-            spawn=sim_utils.DomeLightCfg(
-                # HDRI를 쓰면 color는 (1,1,1) 추천: 텍스처 색 그대로 사용
-                color=(1.0, 1.0, 1.0),
-                intensity=2000.0,                  # 씬 밝기에 따라 1000~5000 사이에서 조정
-                texture_file="/home/cocel/Downloads/golden_gate_hills_20k.hdr"  # 구름 포함 HDRI 경로(.hdr/.exr)
-            ),
-        )
 
         # reduce the number of terrains to save memory
         if self.scene.terrain.terrain_generator is not None:
@@ -165,21 +160,13 @@ class WolfRoughEnvCfg_PLAY(WolfRoughEnvCfg):
         self.observations.none_stack_policy.enable_corruption = False
         #! ********************************************************* !#
 
-        # add base mass should be called here
-        self.events.add_base_mass.params["asset_cfg"].body_names = ["base_link"]
-        self.events.add_base_mass.params["mass_distribution_params"] = (-1.0, 3.0)
-
-        # physics material should be called here
-        self.events.physics_material.params["asset_cfg"].body_names = [".*_link"]
-
-        # randomize actuator gains
         self.events.randomize_joint_actuator_gains = None
 
-        self.events.reset_robot_joints.params["position_range"] = (-0.15, 0.15)
+        self.events.reset_robot_joints.params["position_range"] = (-0.2, 0.2)
         self.events.push_robot = None
 
         self.events.reset_base.params = {
-            "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "yaw": (-3.14, 3.14)},
+            "pose_range": {"x": (-0.0, 0.0), "y": (-0.0, 0.0), "yaw": (0.0, 0.0)},
             "velocity_range": {
                 "x": (0.0, 0.0),
                 "y": (0.0, 0.0),
@@ -189,23 +176,17 @@ class WolfRoughEnvCfg_PLAY(WolfRoughEnvCfg):
                 "yaw": (0.0, 0.0),
             },
         }
-        
-        # commands
-        self.commands.base_velocity.ranges.lin_vel_x = (-1.5, 1.5)
-        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
-        self.commands.base_velocity.ranges.ang_vel_z = (-2.5, 2.5)
-        self.commands.base_velocity.ranges.heading = (-math.pi, math.pi)
-        
+
         if getattr(self.curriculum, "terrain_levels", None) is not None:
             if self.scene.terrain.terrain_generator is not None:
                 self.scene.terrain.terrain_generator.curriculum = True
         else:
             if self.scene.terrain.terrain_generator is not None:
                 self.scene.terrain.terrain_generator.curriculum = False
-                
+
         # terminations
         self.terminations.base_contact.params["sensor_cfg"].body_names = [
             "base_link",
+            "Hip_.*",
+            "Thigh_.*",
         ]
-
- 

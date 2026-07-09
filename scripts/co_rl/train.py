@@ -157,6 +157,13 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg | Man
         print(f"[INFO]: Loading model checkpoint from: {resume_path}")
         # load previously trained model
         runner.load(resume_path)
+    elif args_cli.init_checkpoint:
+        init_path = os.path.abspath(args_cli.init_checkpoint)
+        print(f"[INFO]: Warm-starting actor from: {init_path}")
+        if hasattr(runner, "load_actor_from_checkpoint"):
+            runner.load_actor_from_checkpoint(init_path)
+        else:
+            raise RuntimeError(f"Runner {type(runner).__name__} does not support actor warm-start.")
 
     # set seed of the environment
     env.seed(agent_cfg.seed)
