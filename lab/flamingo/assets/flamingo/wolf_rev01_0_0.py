@@ -15,12 +15,13 @@ from lab.flamingo.assets.flamingo import FLAMINGO_ASSETS_DATA_DIR
 # Tuned 2026-06-15: HAA/HFE/AFE 120/2, KFE 300/15 — see
 # docs/experiments/rl/20260615_wolf_isaac_pd_damping_shake.md
 # (prior 200/10 caused back-leg shake and AFE torque saturation at effort_limit).
-_WOLF_PD_DELAY = dict(min_delay=0, max_delay=4)
+_WOLF_PD_DELAY = dict(min_delay=0, max_delay=8)
+_WOLF_KFE_PD_DELAY = dict(min_delay=0, max_delay=16)
 _WOLF_HIP_PD = dict(stiffness=80.0, damping=2.0)
 _WOLF_KFE_FRONT_PD = dict(
     effort_limit=600.0,
     velocity_limit=25.0,
-    stiffness=80.0,
+    stiffness=100.0,
     damping=2.0,
     friction=0.0,
     armature=0.035,
@@ -29,14 +30,14 @@ _WOLF_KFE_BACK_PD = dict(
     effort_limit=600.0,
     velocity_limit=25.0,
     stiffness=80.0,
-    damping=5.0,
+    damping=4.0,
     friction=0.0,
     armature=0.035,
 )
 _WOLF_AFE_PD = dict(
     effort_limit=60.0,
     velocity_limit=25.0,
-    stiffness=80.0,
+    stiffness=100.0,
     damping=2.0,
     friction=0.0,
     armature=0.01,
@@ -65,7 +66,7 @@ def _wolf_knee_back_delayed_pd(joint_name: str) -> DelayedPDActuatorCfg:
         damping={joint_name: _WOLF_KFE_BACK_PD["damping"]},
         friction={joint_name: _WOLF_KFE_BACK_PD["friction"]},
         armature={joint_name: _WOLF_KFE_BACK_PD["armature"]},
-        **_WOLF_PD_DELAY,
+        **_WOLF_KFE_PD_DELAY,
     )
 
 def _wolf_knee_front_delayed_pd(joint_name: str) -> DelayedPDActuatorCfg:
@@ -77,7 +78,7 @@ def _wolf_knee_front_delayed_pd(joint_name: str) -> DelayedPDActuatorCfg:
         damping={joint_name: _WOLF_KFE_FRONT_PD["damping"]},
         friction={joint_name: _WOLF_KFE_FRONT_PD["friction"]},
         armature={joint_name: _WOLF_KFE_FRONT_PD["armature"]},
-        **_WOLF_PD_DELAY,
+        **_WOLF_KFE_PD_DELAY,
     )
 
 
